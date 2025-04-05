@@ -11,10 +11,9 @@ This project implements an optimized algorithm to assign rides to drivers, minim
 - **rides**: list of ride requests with start/end times and coordinates.
 - **options**: configuration flags for distance filtering.
 
+
 It outputs an assignment of rides to drivers that minimizes:
-```
 - **RealBaseCost**: time cost (empty travel + ride time) + fuel cost.
----
 
 ## Prerequisites
 
