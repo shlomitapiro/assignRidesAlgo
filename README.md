@@ -186,6 +186,7 @@ This algorithm follows a **greedy, incremental** approach:
 - **No Global Optimality**: For scenarios requiring strict guarantees (e.g., minimize maximum driver load or absolute cost bounds), consider global methods (Hungarian, MILP).
 - **Penalty Sensitivity**: The effectiveness of fairness depends on the weight and formula chosen. Large disparities in base costs may require very high penalties or alternative penalty shapes.
 
+
 ### 1. Initialization
 - Create an empty schedule for each driver:
   ```js
@@ -225,6 +226,17 @@ To minimize network overhead and latency, the filtered strategy first calculates
 
 #### Disadvantages:
 - The air-distance filter may exclude rides that are actually serviceable, reducing the number of assignable rides to drivers.
+
+### Fairness & Statistics
+The algorithm includes a fairness penalty to ensure a more equitable distribution of rides among drivers. This is particularly useful in scenarios where drivers have varying capacities or when the goal is to minimize driver fatigue and maximize service equity.
+The algorithm calculates and provides detailed fairness statistics:
+- **Minimum Assigned Rides**: the smallest number of rides assigned to a single driver.
+- **Maximum Assigned Rides**: the largest number of rides assigned to a single driver.
+- **Average Assigned Rides**: the average number of rides assigned per driver.
+- **Standard Deviation**: indicates how evenly the rides are distributed among drivers; a smaller number represents greater fairness.
+- **Counts Per Driver**: a detailed breakdown showing how many rides each driver received.
+
+These statistics help evaluate the effectiveness of the fairness penalty and guide fine-tuning decisions for better balanced assignments.
 
 ---
 
