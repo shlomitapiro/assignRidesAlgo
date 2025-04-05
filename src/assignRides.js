@@ -17,19 +17,22 @@ const rides = JSON.parse(
 
 console.log('Drivers:', drivers.length);
 console.log('Rides:', rides.length);
-
-// Controlled via config.js
 console.log('Air Distance Filter:', config.useAirDistanceFilter, '(max km:', config.maxAirDistanceKm, ');');
 console.log('Optimizing assignments please wait...');
 
 (async () => {
-    const optimizedResult = await assignOptimizedRides(drivers, rides, {
-      fairnessMode:   config.fairnessMode,
-      fairnessWeight: config.fairnessWeight,
-      useAirDistanceFilter: config.useAirDistanceFilter,
-      maxAirDistanceKm: config.maxAirDistanceKm,
-    });
-  
-    let resultStr = JSON.stringify(optimizedResult, null, 2);
-    console.log(resultStr);
+  const optimizedResult = await assignOptimizedRides(drivers, rides, {
+    useAirDistanceFilter: config.useAirDistanceFilter,
+    maxAirDistanceKm:     config.maxAirDistanceKm,
+    getTravelTimeFn:      null
+  });
+
+  // Print how many rides were assigned
+  const totalRides    = rides.length;
+  const assignedCount = optimizedResult.assignments.reduce((sum, a) => sum + a.rideIds.length, 0);
+  const pct = ((assignedCount / totalRides) * 100).toFixed(1);
+  console.log(`Assigned ${assignedCount} out of ${totalRides} rides (${pct}%)`);
+
+  console.log('Optimized Assignments:');
+  console.log(JSON.stringify(optimizedResult, null, 2));
 })();

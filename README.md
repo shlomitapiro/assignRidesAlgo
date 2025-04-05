@@ -40,6 +40,8 @@ project-root/
 ├── .env                 # environment variables
 ├── drivers.json         # sample drivers data
 ├── rides.json           # sample rides data
+├── gitignore            # ignored files
+├── generateTestData.js   # script to generate test data
 ├── src/
 │   ├── assignRides.js   # entry point
 │   ├── optimizer.js     # core algorithm
@@ -61,6 +63,14 @@ Create a `.env` in the project root:
 USE_AIR_FILTER=true
 MAX_AIR_DISTANCE_KM=10
 
+# Test‑data generation
+NUM_DRIVERS=8
+NUM_RIDES=30
+LAT_MIN=32.20
+LAT_MAX=32.60
+LON_MIN=34.80
+LON_MAX=35.00
+
 ```
 
 ### `src/config.js`
@@ -70,10 +80,18 @@ module.exports = {
 
   useAirDistanceFilter: process.env.USE_AIR_FILTER === 'true',
   maxAirDistanceKm: parseFloat(process.env.MAX_AIR_DISTANCE_KM) || 5,
+
+  numDrivers:   parseInt(process.env.NUM_DRIVERS,  10) || 20,
+  numRides:     parseInt(process.env.NUM_RIDES,    10) || 40,
+  latMin:       parseFloat(process.env.LAT_MIN)   || 32.30,
+  latMax:       parseFloat(process.env.LAT_MAX)   || 32.50,
+  lonMin:       parseFloat(process.env.LON_MIN)   || 34.85,
+  lonMax:       parseFloat(process.env.LON_MAX)   || 34.95,
 };
 ```
 
-These values drive distance filtering.
+These values drive distance filtering and test data generation. The `NUM_DRIVERS` and `NUM_RIDES` variables are used to generate random test data for the drivers and rides.
+The `LAT_MIN`, `LAT_MAX`, `LON_MIN`, and `LON_MAX` variables define the geographical bounds for generating random coordinates for drivers and rides.
 
 ---
 
@@ -109,6 +127,7 @@ These values drive distance filtering.
 1. Ensure `.env` is configured.
 2. Run:
    ```bash
+   node generateTestData.js # generates random test data
    npm start
    ```
 3. Output includes:
@@ -118,10 +137,13 @@ These values drive distance filtering.
 
 Example:
 ```bash
-Drivers: 4
-Rides: 20
-Fairness Mode: true (weight: 20)
-Air Distance Filter: true (max km: 10)
+→ Wrote drivers.json with 8 drivers
+→ Wrote rides.json with 30 rides
+Drivers: 8
+Rides: 30
+Air Distance Filter: true (max km: 10 );
+Optimizing assignments please wait...
+Assigned 18 out of 30 rides (60.0%)
 Optimized Assignments:
 {
   "assignments": [...],
@@ -255,6 +277,7 @@ The algorithm includes a fairness penalty to ensure a more equitable distributio
 These statistics help evaluate the effectiveness of the fairness penalty and guide fine-tuning decisions for better balanced assignments.
 
 **Note**: The fairness penalty was planned but not implemented in the current version. I decided to remove it from the code because it does not work as expected because the grid algorithm chooses at each stage the driver with the lowest adjustedCost, and baseCost (idle time, travel time, and fuel cost) continues to be the dominant factor. Even when you add very heavy penalties, the driver with the lowest baseCost remains cheaper (despite the penalty) and therefore gets the trips. In order to make it work, we have to change the algorithm to a more global one.
+
 
 ## License
 MIT © Shlomi Tapiro

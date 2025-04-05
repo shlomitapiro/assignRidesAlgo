@@ -12,6 +12,7 @@ yarn-error.log*
 # IDE/editor files
 .vscode/
 .idea/
+.json
 
 # Output
 dist/
