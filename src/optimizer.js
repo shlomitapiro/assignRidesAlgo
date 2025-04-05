@@ -8,7 +8,6 @@ const config = require("./config");
 /**
  * Main function: assign rides to drivers in an optimized manner.
  * Minimizes total cost.
- *
  * @param {Array<Object>} drivers - list of driver objects
  * @param {Array<Object>} rides   - list of ride objects
  * @param {Object} options        - runtime options (overrides config)
@@ -63,21 +62,18 @@ function sortRidesByStartTime(rides) {
 async function findBestDriverForRide(drivers, schedules, ride, travelFn) {
   
   let bestDriverId = null;
-  let bestAdjustedCost = Infinity;
-  let bestBaseCost = 0;
+  let bestBaseCost = Infinity;
 
   for (const driver of drivers) {
     const sched = schedules[driver.driverId];
     if (!(await canDriverPerformRide(driver, ride, sched.lastRide, travelFn))) continue;
   
     const { baseCost } = await calculateRideCost(driver, ride, sched.lastRide);
-    const adjustedCost = baseCost;
 
     // Choose the driver with the lowest adjusted cost
-    if (adjustedCost < bestAdjustedCost) {
-      bestAdjustedCost = adjustedCost;
-      bestDriverId = driver.driverId;
+    if (baseCost < bestBaseCost) {
       bestBaseCost = baseCost;
+      bestDriverId = driver.driverId;
     }
   }
 

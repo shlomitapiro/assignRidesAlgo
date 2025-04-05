@@ -1,12 +1,12 @@
 // distanceService.annotated.js
-// Provides travel-time and distance calculations with optional air-distance filtering
+// Calculate travel time and distance, with optional air‑distance filtering
 
 const axios = require('axios');
 const config = require('./config');
 
 /**
- * Calculates the air (great-circle) distance between two coordinates using the Haversine formula.
- * This is a fast check to filter out obviously too-distant pairs before making HTTP calls.
+ * Compute straight‑line (great‑circle) distance between two points.
+ * Uses the Haversine formula.
  *
  * @param {[number, number]} coord1 - [latitude, longitude]
  * @param {[number, number]} coord2 - [latitude, longitude]
@@ -20,19 +20,18 @@ function getAirDistanceKm(coord1, coord2) {
 
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
-  const a =
+  const h =
     Math.sin(dLat / 2) ** 2 +
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
     Math.sin(dLon / 2) ** 2;
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const c = 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
 
   return R * c;
 }
 
 /**
- * Always calls the OSRM API to get driving time between two points.
- * This is the “raw” method without any pre-filtering.
- *
+ * Get driving time from A to B via OSRM.
+ * 
  * @param {[number, number]} fromCoords - [latitude, longitude]
  * @param {[number, number]} toCoords   - [latitude, longitude]
  * @returns {Promise<number>} Travel time in minutes (rounded up, minimum 1)
@@ -61,13 +60,13 @@ async function rawTravelTime(fromCoords, toCoords) {
  *
  * @param {[number, number]} fromCoords
  * @param {[number, number]} toCoords
- * @param {number} maxAirDistanceKm - threshold in kilometers
+ * @param {number} maxAirDistanceKm - max allowed air distance in km
  * @returns {Promise<number>} Travel time in minutes or Infinity if filtered
  */
 async function filteredTravelTime(fromCoords, toCoords, maxAirDistanceKm) {
   const airDistance = getAirDistanceKm(fromCoords, toCoords);
 
-  // Skip OSRM if too far by straight-line distance
+  // Skip OSRM
   if (airDistance > maxAirDistanceKm) {
     return Infinity;
   }
@@ -77,8 +76,8 @@ async function filteredTravelTime(fromCoords, toCoords, maxAirDistanceKm) {
 }
 
 /**
- * Wrapper that chooses between raw and filtered travel-time strategies
- * based on the configuration flag useAirDistanceFilter.
+ * Choose between raw or filtered travel time.
+ * Controlled by config.useAirDistanceFilter.
  *
  * @param {[number, number]} fromCoords
  * @param {[number, number]} toCoords
@@ -94,8 +93,8 @@ function getTravelTimeInMinutes(fromCoords, toCoords) {
 }
 
 /**
- * Always calls the OSRM API to get driving distance between two points.
- * No filtering is applied for distance queries.
+ * Get driving distance from A to B via OSRM.
+ * No filtering applied.
  *
  * @param {[number, number]} fromCoords
  * @param {[number, number]} toCoords

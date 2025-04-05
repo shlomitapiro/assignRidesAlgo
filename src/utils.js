@@ -1,12 +1,14 @@
 // utils.annotated.js
-// Utility functions for time parsing and driver eligibility checks
+// Utility functions: convert time strings and check if a driver can take a ride
 
 const { getTravelTimeInMinutes } = require("./distanceService");
 
 /**
- * Converts a time string in HH:mm format to total minutes since midnight.
- * Validates format strictly and throws on invalid input.
- *
+ * Convert a "HH:mm" time string into minutes since midnight.
+ * Examples:
+ *   "00:00" → 0
+ *   "07:30" → 450
+ *   "23:59" → 1439
  * @param {string} timeStr - Time string in "HH:mm"
  * @returns {number} Minutes since midnight (0-1439).
  * @throws {Error} If input is not a string or not a valid time.
@@ -20,7 +22,7 @@ function parseTimeToMinutes(timeStr) {
   const hours = Number(hoursStr);
   const minutes = Number(minutesStr);
 
-  // Validate numeric ranges: hours 0-23, minutes 0-59
+  // Must be integers: hours 0–23, minutes 0–59
   const isValid =
     Number.isInteger(hours) &&
     Number.isInteger(minutes) &&
@@ -36,24 +38,28 @@ function parseTimeToMinutes(timeStr) {
 }
 
 /**
- * Determines if a driver can perform a given ride.
- * Checks status, seat capacity, and whether they can arrive in time
- * from either their home location or the end of their last assigned ride.
+ * Check if a driver is able to perform a ride:
+ * 1. Driver must be active.
+ * 2. Must have enough seats.
+ * 3. Must be able to arrive before ride start:
+ *    - From home, if no previous ride.
+ *    - From end of last ride, otherwise.
  *
- * @param {Object} driver       - Driver object with status, seats, and home coords.
- * @param {Object} ride         - Ride object with startTime and startPoint_coords.
- * @param {Object|null} previousRide - Last assigned ride or null if none.
- * @returns {Promise<boolean>}  - True if driver is eligible, false otherwise.
+ * @param {Object}  driver        - { status, numberOfSeats, city_coords }
+ * @param {Object}  ride          - { startTime, startPoint_coords, numberOfSeats }
+ * @param {Object|null} previousRide - Last assigned ride or null
+ * @returns {Promise<boolean>} True if driver can take the ride
  */
 async function canDriverPerformRide(driver, ride, previousRide = null) {
+  // 1. Must be active
   if (driver.status !== "active") return false;
-
+  // 2. Must have enough seats
   if (driver.numberOfSeats < ride.numberOfSeats) return false;
 
   // Convert ride start time to minutes since midnight
   const rideStart = parseTimeToMinutes(ride.startTime);
-  let travelTime;
 
+  let travelTime;
   if (previousRide) {
     // If driver has a previous ride, calculate travel time from its end location
     const previousEnd = parseTimeToMinutes(previousRide.endTime);

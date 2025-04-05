@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 // generateTestData.js
+// Create drivers.json and rides.json with random data,
+// snapping each point to the nearest road via OSRM.
 
 const axios = require('axios');
 const fs = require('fs');
@@ -7,59 +9,18 @@ const path = require('path');
 const config = require("./src/config.js");
 
 const OSRM_BASE   = 'http://router.project-osrm.org';
+
+// Read settings from config (.env)
 const NUM_DRIVERS = config.numDrivers; 
 const NUM_RIDES   = config.numRides;
-
-// Geographical bounds for random lat/lon generation
-const LAT_MIN = config.latMin;
-const LAT_MAX = config.latMax;
-const LON_MIN = config.lonMin;
-const LON_MAX = config.lonMax;
-
-// Helpers
-function randomInRange(min, max) {
-  return Math.random() * (max - min) + min;
-}
-function pad(n) {
-  return n.toString().padStart(2, '0');
-}
-/**
- * Generate a random start time between 06:00 and 18:00,
- * then an end time by adding 10–60 minutes.
- */
-function randomTimeWindow() {
-  const startHour   = Math.floor(randomInRange(6, 18));
-  const startMinute = Math.floor(randomInRange(0, 60));
-  const durationMin = Math.floor(randomInRange(10, 60));
-  let totalStart    = startHour * 60 + startMinute;
-  let totalEnd      = totalStart + durationMin;
-  // wrap past midnight (unlikely here, but safe)
-  totalEnd = totalEnd % (24 * 60);
-
-  const sh = Math.floor(totalStart / 60), sm = totalStart % 60;
-  const eh = Math.floor(totalEnd   / 60), em = totalEnd   % 60;
-  return {
-    startTime: `${pad(sh)}:${pad(sm)}`,
-    endTime:   `${pad(eh)}:${pad(em)}`
-  };
-}
+const LAT_MIN     = config.latMin;
+const LAT_MAX     = config.latMax;
+const LON_MIN     = config.lonMin;
+const LON_MAX     = config.lonMax;
 
 /**
- * Snap a [lat,lon] point to the nearest road via OSRM nearest service.
- * Falls back to the original point on error.
+ * Main routine: generate drivers.json and rides.json.
  */
-async function snapToRoad([lat, lon]) {
-  try {
-    const url = `${OSRM_BASE}/nearest/v1/driving/${lon},${lat}?number=1`;
-    const res = await axios.get(url);
-    const [snappedLon, snappedLat] = res.data.waypoints[0].location;
-    return [snappedLat, snappedLon];
-  } catch (err) {
-    console.warn('OSRM nearest failed, using raw coords:', err.message);
-    return [lat, lon];
-  }
-}
-
 async function generate() {
   // 1. Generate drivers.json
   const drivers = [];
@@ -128,3 +89,63 @@ generate().catch(err => {
   console.error('Failed to generate test data:', err);
   process.exit(1);
 });
+
+/**
+ * Return a random number between min (inclusive) and max (exclusive).
+ */
+function randomInRange(min, max) {
+  return Math.random() * (max - min) + min;
+}
+
+/**
+ * Pad a number to two digits (e.g. 7 → "07").
+ */
+function pad(n) {
+  return n.toString().padStart(2, '0');
+}
+
+/**
+ * Pick a random time between 06:00 and 18:00,
+ * then add 10–60 minutes to get an end time.
+ * Returns { startTime, endTime } as "HH:mm" strings.
+ */
+function randomTimeWindow() {
+  const startHour   = Math.floor(randomInRange(6, 18));
+  const startMinute = Math.floor(randomInRange(0, 60));
+  const durationMin = Math.floor(randomInRange(10, 60));
+  let totalStart    = startHour * 60 + startMinute; // Convert the start time into total minutes since midnight
+  let totalEnd      = totalStart + durationMin;
+
+  totalEnd = totalEnd % (24 * 60); // Compute the end time in total minutes
+
+  //Convert totalStart back into hours and minutes
+  const sh = Math.floor(totalStart / 60);
+  const sm = totalStart % 60;
+
+  //Convert totalEnd back into hours and minutes
+  const eh = Math.floor(totalEnd / 60);
+  const em = totalEnd % 60;
+
+  //Format both as "HH:mm"
+  return {
+    startTime: `${pad(sh)}:${pad(sm)}`,
+    endTime:   `${pad(eh)}:${pad(em)}`
+  };
+}
+
+/**
+ * Snap a [lat, lon] point to the nearest road using OSRM's nearest API.
+ * If the API call fails, return the original point.
+ */
+async function snapToRoad([lat, lon]) {
+  try {
+    const url = `${OSRM_BASE}/nearest/v1/driving/${lon},${lat}?number=1`;
+    const res = await axios.get(url);
+    const [snappedLon, snappedLat] = res.data.waypoints[0].location;
+    return [snappedLat, snappedLon];
+  } catch (err) {
+    console.warn('OSRM nearest failed, using raw coords:', err.message);
+    return [lat, lon];
+  }
+}
+
