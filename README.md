@@ -1,29 +1,6 @@
 # Driver Assignment Optimization
 
-This project implements an optimized algorithm to assign rides to drivers, minimizing total cost while optionally enforcing fairness. It supports dynamic configuration for distance filtering and fairness penalties.
-
----
-
-## Table of Contents
-1. [Overview](#overview)
-2. [Prerequisites](#prerequisites)
-3. [Installation](#installation)
-4. [Project Structure](#project-structure)
-5. [Configuration](#configuration)
-   - [.env File](#env-file)
-   - [`src/config.js`](#srcconfigjs)
-6. [Data Files](#data-files)
-7. [Usage](#usage)
-8. [Algorithm Details](#algorithm-details)
-   - [1. Initialization](#1-initialization)
-   - [2. Sorting Rides](#2-sorting-rides)
-   - [3. Cost Calculation](#3-cost-calculation)
-   - [4. Fairness Penalty](#4-fairness-penalty)
-   - [5. Distance Service Strategies](#5-distance-service-strategies)
-9. [Options & Environment Variables](#options--environment-variables)
-10. [Running Tests](#running-tests)
-11. [Advanced Topics](#advanced-topics)
-12. [License](#license)
+This project implements an optimized algorithm to assign rides to drivers, minimizing total cost. It supports dynamic configuration for distance filtering.
 
 ---
 
@@ -32,16 +9,11 @@ This project implements an optimized algorithm to assign rides to drivers, minim
 `assignOptimizedRides` takes:
 - **drivers**: list of driver objects with capacity, location, fuel cost.
 - **rides**: list of ride requests with start/end times and coordinates.
-- **options**: configuration flags for fairness and distance filtering.
+- **options**: configuration flags for distance filtering.
 
 It outputs an assignment of rides to drivers that minimizes:
 ```
-TotalCost = RealBaseCost + TotalPenalty
-```
-
 - **RealBaseCost**: time cost (empty travel + ride time) + fuel cost.
-- **TotalPenalty**: fairness penalties for uneven ride distribution.
-
 ---
 
 ## Prerequisites
@@ -90,23 +62,19 @@ Create a `.env` in the project root:
 USE_AIR_FILTER=true
 MAX_AIR_DISTANCE_KM=10
 
-# Fairness penalty
-FAIRNESS_MODE=true
-FAIRNESS_WEIGHT=20
 ```
 
 ### `src/config.js`
 Loads environment variables (via `dotenv`) and exports:
 ```js
 module.exports = {
+
   useAirDistanceFilter: process.env.USE_AIR_FILTER === 'true',
-  maxAirDistanceKm:     parseFloat(process.env.MAX_AIR_DISTANCE_KM) || 5,
-  fairnessMode:         process.env.FAIRNESS_MODE === 'true',
-  fairnessWeight:       parseFloat(process.env.FAIRNESS_WEIGHT) || 1,
+  maxAirDistanceKm: parseFloat(process.env.MAX_AIR_DISTANCE_KM) || 5,
 };
 ```
 
-These values drive both distance filtering and fairness penalty.
+These values drive distance filtering.
 
 ---
 
@@ -148,7 +116,6 @@ These values drive both distance filtering and fairness penalty.
    - Number of drivers & rides
    - Active modes (fairness, distance filter)
    - JSON of optimized assignments
-   - Fairness statistics (min, max, avg, stdDev)
 
 Example:
 ```bash
@@ -159,24 +126,21 @@ Air Distance Filter: true (max km: 10)
 Optimized Assignments:
 {
   "assignments": [...],
-  "realTotalCost": 600, ## what we actually paid
-  "totalPenalty": 80,
   "totalCost": 680,
-
-  "fairness": { "min":3, "max":5, ... }
 }
 ```
-
 ---
 
 ## Algorithm Details
 
-
 This algorithm follows a **greedy, incremental** approach:
 
-- **Greedy Assignment**: Rides are processed in chronological order, and each ride is immediately assigned to the driver with the lowest _adjusted cost_ at that moment. This ensures fast, one-pass execution without backtracking.
-- **Local Decision Making**: The choice for each ride is based solely on current schedules and costs, including any fairness penalty. There is no global look‑ahead or re‑optimization of previously assigned rides.
-- **Complexity**: With _D_ drivers and _R_ rides, the algorithm performs up to _O(R × D)_ cost evaluations, each involving travel‑time and distance computations. Caching or parallelization can reduce the effective runtime in practice.
+- **Greedy Assignment**: 
+Rides are processed in chronological order, and each ride is immediately assigned to the driver with the lowest _adjusted cost_ at that moment. This ensures fast, one-pass execution without backtracking.
+- **Local Decision Making**:
+The choice for each ride is based solely on current schedules and costs, including any fairness penalty. There is no global look‑ahead or re‑optimization of previously assigned rides.
+- **Complexity**:
+With _D_ drivers and _R_ rides, the algorithm performs up to _O(R × D)_ cost evaluations, each involving travel‑time and distance computations. Caching or parallelization can reduce the effective runtime in practice.
 - **Trade‑Offs**:
   - *Pros*: Simple to implement, predictable runtime, easy to extend (e.g., add new penalty rules).
   - *Cons*: May not find the absolute global minimum cost under all constraints, especially when fairness penalties or time‑window constraints interact in complex ways.
@@ -184,14 +148,12 @@ This algorithm follows a **greedy, incremental** approach:
 ### Limitations
 
 - **No Global Optimality**: For scenarios requiring strict guarantees (e.g., minimize maximum driver load or absolute cost bounds), consider global methods (Hungarian, MILP).
-- **Penalty Sensitivity**: The effectiveness of fairness depends on the weight and formula chosen. Large disparities in base costs may require very high penalties or alternative penalty shapes.
-
 
 ### 1. Initialization
 - Create an empty schedule for each driver:
   ```js
   schedules = {
-    driver1: { rides: [], baseCost:0, penaltyCost:0, lastRide:null },
+    driver1: { rides: [], baseCost:0, lastRide:null },
     ...
   }
   ```
@@ -226,8 +188,6 @@ To minimize network overhead and latency, the filtered strategy first calculates
 |----------------------|---------|---------|------------------------------------------------|
 | USE_AIR_FILTER       | boolean | true    | Enable air-distance filtering before OSRM call |
 | MAX_AIR_DISTANCE_KM  | number  | 5       | Threshold for air-distance filter (km)         |
-| FAIRNESS_MODE        | boolean | true    | Enable fairness penalty                       |
-| FAIRNESS_WEIGHT      | number  | 1       | Weight of penalty per ride (quadratic formula) |
 
 ---
 
