@@ -127,12 +127,11 @@ The `LAT_MIN`, `LAT_MAX`, `LON_MIN`, and `LON_MAX` variables define the geograph
 1. Ensure `.env` is configured.
 2. Run:
    ```bash
-   node generateTestData.js # generates random test data
+   npm run generate-data # generates random test data
    npm start
    ```
 3. Output includes:
    - Number of drivers & rides
-   - Active modes (fairness, distance filter)
    - JSON of optimized assignments
 
 Example:
