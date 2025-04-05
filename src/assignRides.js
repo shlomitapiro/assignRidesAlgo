@@ -19,8 +19,8 @@ console.log('Drivers:', drivers.length);
 console.log('Rides:', rides.length);
 
 // Controlled via config.js
-console.log('Fairness Mode:', config.fairnessMode, '(weight:', config.fairnessWeight, ');');
 console.log('Air Distance Filter:', config.useAirDistanceFilter, '(max km:', config.maxAirDistanceKm, ');');
+console.log('Optimizing assignments please wait...');
 
 (async () => {
     const optimizedResult = await assignOptimizedRides(drivers, rides, {
@@ -30,9 +30,6 @@ console.log('Air Distance Filter:', config.useAirDistanceFilter, '(max km:', con
       maxAirDistanceKm: config.maxAirDistanceKm,
     });
   
-    console.log('Optimized Assignments:');
-    // Stringify and insert an extra blank line before the "fairness" section
     let resultStr = JSON.stringify(optimizedResult, null, 2);
-    resultStr = resultStr.replace(/("totalCost":\s*\d+,)\n(\s*"fairness")/, '$1\n\n$2');
     console.log(resultStr);
 })();

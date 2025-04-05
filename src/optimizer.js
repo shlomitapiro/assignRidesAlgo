@@ -7,51 +7,28 @@ const config = require("./config");
 
 /**
  * Main function: assign rides to drivers in an optimized manner.
- * Minimizes total cost and optionally applies a fairness penalty.
+ * Minimizes total cost.
  *
  * @param {Array<Object>} drivers - list of driver objects
  * @param {Array<Object>} rides   - list of ride objects
  * @param {Object} options        - runtime options (overrides config)
- * @returns {Promise<Object>}     - assignments, cost breakdown, fairness stats
+ * @param {Function} [options.getTravelTimeFn] - optional override for travel-time function
+ * @returns {Promise<Object>}     - { assignments, realTotalCost, totalCost }
  */
 async function assignOptimizedRides(drivers, rides, options = {}) {
-  // Destructure options with fallbacks to global config values
-  const {
-    fairnessMode         = config.fairnessMode,         // enable fairness penalty?
-    fairnessWeight       = config.fairnessWeight,       // penalty weight
-    useAirDistanceFilter = config.useAirDistanceFilter, // filter distant rides?
-    maxAirDistanceKm     = config.maxAirDistanceKm,     // threshold in km
-    getTravelTimeFn      = null                          // override travel-time function
-  } = options;
+  // Allow overriding the travel-time function; default to the wrapper
+  const travelFn = options.getTravelTimeFn || getTravelTimeInMinutes;
 
-  // Determine which travel-time function to use:
-  //  - if provided via options, use that
-  //  - else if air-distance filtering is enabled, wrap filteredTravelTime
-  //  - else use raw OSRM-based travel time
-
-  // Determine which travel-time function to use:
-  // - if provided via options, use that
-  // - else use the getTravelTimeInMinutes wrapper (handles raw vs filtered based on config)
-
-  // You could also bypass the wrapper and choose directly:
-  // const travelFn = getTravelTimeFn || (useAirDistanceFilter ? filteredTravelTime : rawTravelTime);
-  const travelFn = getTravelTimeFn || getTravelTimeInMinutes;
-
-  // Initialize an empty schedule for each driver
-  const schedules = initializeSchedules(drivers);
+  const schedules   = initializeSchedules(drivers);
   const sortedRides = sortRidesByStartTime(rides);
 
   for (const ride of sortedRides) {
-    // Find the best driver based on adjusted cost (baseCost + penalty)
-    const { bestDriverId, bestBaseCost } = await findBestDriverForRide(drivers, schedules, ride,
-      { fairnessMode, fairnessWeight, getTravelTimeFn: travelFn }
-    );
+    const { bestDriverId, bestBaseCost } = await findBestDriverForRide(drivers, schedules, ride, travelFn);
 
-    // If a feasible driver was found, update their schedule
     if (bestDriverId) {
-      assignRide(schedules, bestDriverId, ride, bestBaseCost, { fairnessMode, fairnessWeight });
+      assignRide(schedules, bestDriverId, ride, bestBaseCost);
     }
-    // else: ride remains unassigned (e.g., no driver available for now)
+    // else: no feasible driver, ride remains unassigned
   }
 
   return buildAssignmentsAndCost(schedules);
@@ -66,7 +43,6 @@ function initializeSchedules(drivers) {
     schedules[driver.driverId] = {
       rides: [],       // list of assigned rides
       baseCost: 0,     // sum of all baseCosts
-      penaltyCost: 0,  // sum of all penalties
       lastRide: null   // track last assigned ride for time-window checks
     };
   });
@@ -84,23 +60,18 @@ function sortRidesByStartTime(rides) {
  * Evaluate all drivers for a given ride and pick the one with minimal adjusted cost.
  * Adjusted cost = baseCost (travel+fuel) + fairness penalty.
  */
-async function findBestDriverForRide(drivers, schedules, ride, options) {
-  const { fairnessMode, fairnessWeight, getTravelTimeFn } = options;
+async function findBestDriverForRide(drivers, schedules, ride, travelFn) {
+  
   let bestDriverId = null;
   let bestAdjustedCost = Infinity;
   let bestBaseCost = 0;
 
   for (const driver of drivers) {
     const sched = schedules[driver.driverId];
-    // Check if driver can physically perform this ride (seats, time window)
-    if (!(await canDriverPerformRide(driver, ride, sched.lastRide, getTravelTimeFn))) {
-      continue; // skip drivers who are not feasible
-    }
-
+    if (!(await canDriverPerformRide(driver, ride, sched.lastRide, travelFn))) continue;
+  
     const { baseCost } = await calculateRideCost(driver, ride, sched.lastRide);
-
-    const penalty = fairnessMode ? computePenalty(sched.rides.length, fairnessWeight) : 0;
-    const adjustedCost = baseCost + penalty;
+    const adjustedCost = baseCost;
 
     // Choose the driver with the lowest adjusted cost
     if (adjustedCost < bestAdjustedCost) {
@@ -116,16 +87,10 @@ async function findBestDriverForRide(drivers, schedules, ride, options) {
 /**
  * Update the chosen driver's schedule with the new ride and penalty
  */
-function assignRide(schedules, driverId, ride, baseCost, options) {
-  const { fairnessMode, fairnessWeight } = options;
-  const sched = schedules[driverId];
-
-  // Penalty computed before adding ride to reflect next-assignment cost
-  const penalty = fairnessMode ? computePenalty(sched.rides.length, fairnessWeight) : 0;
-
+function assignRide(schedules, driverId, ride, baseCost) {
+  const sched = schedules[driverId]; // get driver's schedule
   sched.rides.push(ride);      // append ride
   sched.baseCost += baseCost;  // accumulate base cost
-  sched.penaltyCost += penalty;// accumulate penalty cost
   sched.lastRide = ride;       // update lastRide for next iteration
 }
 
@@ -135,32 +100,18 @@ function assignRide(schedules, driverId, ride, baseCost, options) {
 function buildAssignmentsAndCost(schedules) {
   const assignments = [];
   let realTotalCost = 0;
-  let totalPenalty = 0;
-
+  
   for (const driverId in schedules) {
+    
     const sched = schedules[driverId];
     if (sched.rides.length === 0) continue;
-
-    // Collect ride IDs for output
-    assignments.push({
-      driverId,
-      rideIds: sched.rides.map(r => r._id)
-    });
-
+    assignments.push({ driverId, rideIds: sched.rides.map(r => r._id) });
     realTotalCost += sched.baseCost;
-    totalPenalty += sched.penaltyCost;
   }
-
-  const totalCost = realTotalCost + totalPenalty;
-
-  const fairness = computeFairnessStats(schedules);
-
+  
   return {
     assignments,
-    realTotalCost: Math.round(realTotalCost),
-    totalPenalty: Math.round(totalPenalty),
-    totalCost: Math.round(totalCost),
-    fairness
+    totalCost: Math.round(realTotalCost)
   };
 }
 
@@ -184,38 +135,6 @@ async function calculateRideCost(driver, ride, lastRide) {
   const fuelCost = driver.fuelCost * (emptyDistance + rideDistance);
 
   return { baseCost: timeCost + fuelCost };
-}
-
-/**
- * Compute distribution stats for fairness analysis
- */
-function computeFairnessStats(schedules) {
-  const counts = Object.values(schedules).map(s => s.rides.length);
-  const total = counts.reduce((sum, c) => sum + c, 0);
-  const n = counts.length;
-  const avg = total / n;
-  const variance = counts.reduce(
-    (sum, c) => sum + (c - avg) ** 2,
-    0
-  ) / n;
-  const stdDev = Math.sqrt(variance);
-
-  return {
-    min: Math.min(...counts),
-    max: Math.max(...counts),
-    avg: Number(avg.toFixed(2)),
-    stdDev: Number(stdDev.toFixed(2)),
-    countsPerDriver: Object.entries(schedules).map(
-      ([driverId, s]) => ({ driverId, count: s.rides.length })
-    )
-  };
-}
-
-/**
- * Quadratic fairness penalty: (currentCount+1)^2 - 1, scaled by weight
- */
-function computePenalty(currentCount, fairnessWeight) {
-  return fairnessWeight * ((currentCount + 1) ** 2 - 1);
 }
 
 module.exports = {
