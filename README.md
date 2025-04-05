@@ -230,7 +230,7 @@ In `distanceService.js`:
 - **`filteredTravelTime`**: computes Haversine air distance; if > `maxAirDistanceKm`, returns `Infinity`, else calls OSRM.
 - **`getTravelTimeInMinutes`**: wrapper that picks raw or filtered based on `useAirDistanceFilter`.
 
-## Reducing OSRM API Calls
+#### Reducing OSRM API Calls
 To minimize network overhead and latency, the filtered strategy first calculates the air distance using the fast Haversine formula. Only if the distance is within the configured threshold does it make an HTTP request to the OSRM service. This prevents unnecessary API calls for driver-ride pairs that would be infeasible or too remote, improving performance and reducing external dependencies.
 
 # Disadvantages:
