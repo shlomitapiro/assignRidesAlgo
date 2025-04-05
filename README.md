@@ -171,7 +171,6 @@ Optimized Assignments:
 
 ## Algorithm Details
 
-### Algorithm Nature and Rationale
 
 This algorithm follows a **greedy, incremental** approach:
 
@@ -182,18 +181,10 @@ This algorithm follows a **greedy, incremental** approach:
   - *Pros*: Simple to implement, predictable runtime, easy to extend (e.g., add new penalty rules).
   - *Cons*: May not find the absolute global minimum cost under all constraints, especially when fairness penalties or time‑window constraints interact in complex ways.
 
-### When to Use This Approach
-
-- **Medium‑sized fleets** (tens to low hundreds of drivers and rides) where a fast, deterministic assignment is preferred.
-- **Dynamic environments** where rides arrive continuously and a full re‑optimization would be too slow.
-- **Extensible penalty models**: you can plug in different fairness or priority functions without changing the core loop.
-
 ### Limitations & Alternatives
 
 - **No Global Optimality**: For scenarios requiring strict guarantees (e.g., minimize maximum driver load or absolute cost bounds), consider global methods (Hungarian, MILP).
 - **Penalty Sensitivity**: The effectiveness of fairness depends on the weight and formula chosen. Large disparities in base costs may require very high penalties or alternative penalty shapes.
-
-## 1. Initialization
 
 ### 1. Initialization
 - Create an empty schedule for each driver:
@@ -218,7 +209,6 @@ For each driver and ride:
 ### 4. Fairness Penalty
 - If `fairnessMode` is `true`, compute penalty:
   ```js
-  // Quadratic penalty for next assignment:
   penalty = fairnessWeight * ((currentCount + 1)**2 - 1);
   ```
 - **Adjusted cost** = `baseCost + penalty`.
@@ -233,8 +223,8 @@ In `distanceService.js`:
 #### Reducing OSRM API Calls
 To minimize network overhead and latency, the filtered strategy first calculates the air distance using the fast Haversine formula. Only if the distance is within the configured threshold does it make an HTTP request to the OSRM service. This prevents unnecessary API calls for driver-ride pairs that would be infeasible or too remote, improving performance and reducing external dependencies.
 
-# Disadvantages:
-- Under-assignment risk: the air-distance filter may exclude rides that are actually serviceable, reducing the number of assignable rides to drivers.
+#### Disadvantages:
+- The air-distance filter may exclude rides that are actually serviceable, reducing the number of assignable rides to drivers.
 
 ---
 
